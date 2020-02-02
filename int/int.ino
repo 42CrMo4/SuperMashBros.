@@ -9,11 +9,11 @@ Spielmechanik für Cocktail Roboter
 // constants won't change. They're used here to set pin numbers:
 
 // Button Pins
-const int buttonPin_1     =   2;     // the number of the pushbutton pin
+const int buttonPin_1     =   7;     // the number of the pushbutton pin
 const int buttonPin_2     =   6;     // the number of the pushbutton pin
-const int buttonPin_3     =   3;     // the number of the pushbutton pin
+const int buttonPin_3     =   5;     // the number of the pushbutton pin
 const int buttonPin_4     =   4;     // the number of the pushbutton pin
-const int buttonPin_5     =   5;     // the number of the pushbutton pin
+const int buttonPin_5     =   3;     // the number of the pushbutton pin
 
 // LED Pins
 const int ledPin_1  =  13;     // the number of the LED pin
