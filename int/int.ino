@@ -17,8 +17,10 @@ int ledState = LOW;         //variable for reading ledstate on/off
 unsigned long previousMillis = 0;
 int counter = 0;             // counter for button press
 int countertemp = 0;         // temporärer counter
-int min_interval = 1000;
-int max_interval = 5000;
+int min_interval_on = 1000;
+int max_interval_on = 5000;
+int min_interval_off = 500;
+int max_interval_off = 700;
 int interval = 1000;           // interval at which to blink (milliseconds)
 
 void setup() {
@@ -40,8 +42,12 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     // save the last time you blinked the LED
     previousMillis = currentMillis;
-    //    Randomisieren des Intervalls
-    interval = random(min_interval, max_interval);
+   //    Randomisieren des Intervalls
+    if (ledState == HIGH) { //Define Off State intervall
+      interval = random(min_interval_off, max_interval_off);
+    } else {                //Define On State intervall
+      interval = random(min_interval_on, max_interval_on);
+    }
     //    Serial.println(interval);
 
     // if the LED is off turn it on and vice-versa:
