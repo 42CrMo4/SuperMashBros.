@@ -6,88 +6,139 @@ Spielmechanik für Cocktail Roboter
 
 */
 
-// constants won't change. They're used here to set pin numbers:
-const int buttonPin = 2;     // the number of the pushbutton pin
-const int ledPin =  13;      // the number of the LED pin
+// setting up Pin arrays for buttons and LEDs to access them efficiently.
+//It is important that LED1 and Button1 are in the same location within their respective array
+const int commonPin = 2;
+int buttonPins[] = {4, 5, 6, 7};
+int ledPins[] = {10, 11, 12, 13};
 
-
-// variables will change:
-int buttonState = 0;         // variable for reading the pushbutton status
-int ledState = LOW;         //variable for reading ledstate on/off
+//misc
+int p = 0;
 unsigned long previousMillis = 0;
+unsigned long lastFire = 0;   //counter for button interrupt time since press
 int counter = 0;             // counter for button press
 int countertemp = 0;         // temporärer counter
 int min_interval_on = 1000;
-int max_interval_on = 5000;
+int max_interval_on = 2000;
 int min_interval_off = 500;
 int max_interval_off = 700;
-int interval = 1000;           // interval at which to blink (milliseconds)
+int interval = 1000;           // interval at which to blink (milliseconds) for the first time
 
-void setup() {
-  // initialize the LED pin as an output:
-  pinMode(ledPin, OUTPUT);
-  // initialize the pushbutton pin as an input:
-  pinMode(buttonPin, INPUT);
-  // Öffnet die serielle Schnittstelle bei 9600 Bit/s:
+//"sizeof" gives the size in bytes, so to get the number of elements it is neccessary to divide by one element
+int arraySize = (sizeof (ledPins) / sizeof(ledPins[0]));
+
+//State arrays have fixed size because Arduino does not support adaptive "stl vectors" without extra libraries.
+// Increase if you want to add more than 15 leds/buttons
+bool buttonStateArray [15];
+bool ledStateArray [15];
+int onIntervalArray [15];
+int offIntervalArray [15];
+int currentMillisArray [15];
+int previousMillisArray [15];
+
+
+void setup()
+{
+  //initialise the led pins (according to the array) as output
+  for (p = 0; p < arraySize; ++p) {
+    pinMode(ledPins[p], OUTPUT);
+  }
+
+  // interrupt button seting
+  configureCommon(); // Setup pins for interrupt
+  attachInterrupt(digitalPinToInterrupt(commonPin), pressInterrupt, FALLING); //interrupt
+
+  // Open the serial port at 9600 Bit/s:
   Serial.begin(9600);
   randomSeed(analogRead(0));
 }
 
 void loop() {
-  //Auswertung Button State (Boolean)
-  buttonState = digitalRead(buttonPin);
-  //Lesen aktuelle Zeit seit Programmstart
-  unsigned long currentMillis = millis();
-  // Check ob Intervall für nächstes Auslösen LED überschritten
-  if (currentMillis - previousMillis >= interval) {
-    // save the last time you blinked the LED
-    previousMillis = currentMillis;
-   //    Randomisieren des Intervalls
-    if (ledState == HIGH) { //Define Off State intervall
-      interval = random(min_interval_off, max_interval_off);
-    } else {                //Define On State intervall
-      interval = random(min_interval_on, max_interval_on);
-    }
-    //    Serial.println(interval);
+  //blink LEDs randomly and independent from each other
+  for (int p = 0; p < arraySize; p++) {
+    //Write the current time into each slot of an array
+    unsigned long currentMillis = millis();
+    currentMillisArray[p] = currentMillis;
+    //Read the ledState & buttonState of the respective array slot
+    ledStateArray[p] = digitalRead(ledPins[p]);
+    //    buttonStateArray[p] = digitalRead(buttonPins[p]);
 
-    // if the LED is off turn it on and vice-versa:
-    if (ledState == LOW) {
-      ledState = HIGH;
-    } else {
-      ledState = LOW;
+    if ((ledStateArray[p] == HIGH) && (currentMillisArray[p] - previousMillisArray[p] >= onIntervalArray[p]))  {
+      //Set the duration of the next off interval for the respective array slot
+      offIntervalArray[p] = random(min_interval_off, max_interval_off);
+      //Change the led state
+      ledStateArray[p] = LOW;  // Turn it off
+      previousMillisArray[p] = currentMillisArray[p];  // Remember the time
+      digitalWrite(ledPins[p], ledStateArray[p]);  // Update the actual LED
     }
+    else if ((ledStateArray[p] == LOW) && (currentMillisArray[p] - previousMillisArray[p] >= onIntervalArray[p])) {
+      //Set the duration of the next off interval for the respective array slot
+      onIntervalArray[p] = random(min_interval_on, max_interval_on);
+      //Change the led state
+      ledStateArray[p] = HIGH;  // turn it on
+      previousMillisArray[p] = currentMillisArray[p];   // Remember the time
+      digitalWrite(ledPins[p], ledStateArray[p]);
+    }    // Update the actual LED
+  }
+}
 
-    // set the LED with the ledState of the variable:
-    digitalWrite(ledPin, ledState);
+
+//interrupt function and finding the correct pin
+void pressInterrupt() { // ISR
+  if (millis() - lastFire < 200) { // Debounce
+    return;
+  }
+  lastFire = millis();
+
+  configureDistinct(); // Setup pins for testing individual buttons
+
+  for (int i = 0; i < sizeof(buttonPins) / sizeof(int); i++) { // Test each button for press
+    if (!digitalRead(buttonPins[i])) {
+      press(i);
+    }
   }
 
-  // check if the pushbutton is pressed and the LED is on
-  if (buttonState == HIGH & ledState == HIGH) {
-    // Schleife fürs erhöhen zählen
-    if (countertemp == 0) {
+  configureCommon(); // Return to original state
+}
+
+// compare button press to LED and count
+void press(int button) {
+  if (ledStateArray[button] == HIGH) {
+    if (countertemp == 0) {   // kann man das hier nicht auch in das obere if statement dazu geben?
+      ledStateArray[button] = LOW;
+      digitalWrite(ledPins[button], ledStateArray[button]);
       counter = counter + 1;
-      Serial.println(counter);
+      Serial.println (counter);
     }
-    // varable zum counter erhöhen verhindern.
-    countertemp = 1;
+    countertemp == 1;
   }
-
-  // check if the pushbutton is pressed and the LED is off
-  else if (buttonState == HIGH & ledState == LOW) {
-    // Schleife fürs verringern Zähler
+  else if (ledStateArray[button] == LOW) {
     if (countertemp == 0) {
       if (counter > 0) {
         counter = counter - 1;
       }
-      Serial.println(counter);
+      Serial.println (counter);
     }
-    // variable zum counter erhöhen verhindern.
-    countertemp = 1;
+    countertemp == 1;
   }
+}
 
-  else {
-    // varable zum counter erhöhen zurücksetzen
-    countertemp = 0;
+// set pin mode to detect any button press
+void configureCommon() {
+  pinMode(commonPin, INPUT_PULLUP);
+
+  for (int i = 0; i < sizeof(buttonPins) / sizeof(int); i++) {
+    pinMode(buttonPins[i], OUTPUT);
+    digitalWrite(buttonPins[i], LOW);
   }
+}
 
+// set pin mode to detect the correct pin for the button press
+void configureDistinct() {
+  pinMode(commonPin, OUTPUT);
+  digitalWrite(commonPin, LOW);
+
+  for (int i = 0; i < sizeof(buttonPins) / sizeof(int); i++) {
+    pinMode(buttonPins[i], INPUT_PULLUP);
+  }
 }
